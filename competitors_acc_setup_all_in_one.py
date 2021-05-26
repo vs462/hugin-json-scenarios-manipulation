@@ -1,20 +1,23 @@
 import json
 
-subdomain = 'test_sub'
-dataset_gp = 1111
-dataset_ap = 1112
-external_id = 'test.io'
+subdomain = 'test_sub' # org subdomain
+
+dataset_gp = 1111 # apple
+dataset_ap = 1112 # google
+
 from_date = '2021-01-01'
 to_date = '2021-02-01'
-company_name = 'Company Name'
 
-file_save_name = 'competitor_huginn_json_company_X'
+company_name = 'Company Name' # just to be displayed in the scenario/agents names 
+
+file_save_name = 'competitor_huginn_json_company_X' # name of the json file that'll be saved on your computer
 
 external_ids = {'app_ext_id':'app_name', 
                 'app_ext_id2':'app_name2',
                 'app_ext_id3':'app_name3'}
 
 backdate = True 
+
 frequency = "every_1h" # no need to specify frequency if Backdate = True
 
 possible_freq = """every_1m, every_2m, every_5m, every_10m, every_30m, every_1h, every_2h, every_5h, 
@@ -22,15 +25,16 @@ possible_freq = """every_1m, every_2m, every_5m, every_10m, every_30m, every_1h,
                 9am, 10am, 11am, noon, 1pm, 2pm, 3pm, 4pm, 5pm, 6pm, 7pm, 8pm, 9pm, 10pm, 11pm, every_sunday, 
                 every_monday, every_tuesday, every_wednesday, every_thursday, every_friday, every_saturday, 
                 every_month, never"""
+ 
     
 def main(company_name, subdomain, dataset_gp, dataset_ap, external_ids, backdate, frequency):
-    
-    agents = create_agents(company_name, subdomain, dataset_gp, dataset_ap, backdate, frequency)
+    mode = 'BACKDATE' if backdate else "LIVE"
+    agents = create_agents(company_name, subdomain, dataset_gp, dataset_ap, mode, backdate, frequency)
     links = create_links(external_ids)
-    return compose_scenario(agents, links)  
+    return compose_scenario(agents, links, mode)  
 
-def create_agents(company_name, subdomain, dataset_gp, dataset_ap, backdate, frequency):
-    create_resp = create_resp_appfl(company_name, subdomain, dataset_gp, dataset_ap, external_ids)
+def create_agents(company_name, subdomain, dataset_gp, dataset_ap, mode, backdate, frequency):
+    create_resp = create_resp_appfl(company_name, subdomain, dataset_gp, dataset_ap, external_ids, mode)
     agents = [create_resp]
     
     for key in external_ids: 
@@ -45,10 +49,10 @@ def create_links(external_ids):
     return links
 
 
-def compose_scenario(agents, links):    
+def compose_scenario(agents, links, mode):    
     scenario = {
       "schema_version": 1,
-      "name": f"123 {company_name} Competitor Appfollow",
+      "name": f"{company_name} Competitor Appfollow {mode}",
       "description": "No description provided",
       "source_url": False,
       "guid": "",
@@ -63,10 +67,10 @@ def compose_scenario(agents, links):
     }
     return scenario
 
-def create_resp_appfl(company_name, subdomain, dataset_gp, dataset_ap, ext_ids_mappings):
+def create_resp_appfl(company_name, subdomain, dataset_gp, dataset_ap, ext_ids_mappings, mode):
     create_response_agent = {
       "type": "Agents::ChattermillResponseAgent",
-      "name": f" {company_name} Competitor Appfollow Create Response",
+      "name": f" {company_name} Competitor Appfollow Create Response {mode}",
       "disabled": False,
       "guid": "",
       "options": {
@@ -152,15 +156,15 @@ def create_resp_appfl(company_name, subdomain, dataset_gp, dataset_ap, ext_ids_m
     }
     return create_response_agent
     
-def appfollow_fetch(company_name, external_id, app_name, from_date, to_date, backdate = True, frequency = "every_1d" ):
+def appfollow_fetch(company_name, external_id, app_name, from_date, to_date, backdate = True, frequency = "never" ):
     appfollow = {
           "type": "Agents::AppfollowAgent",
-          "name": f"{company_name} {app_name} AppFollow Fetch ({external_id})",
+          "name": f"{company_name} {app_name} AppFollow Fetch ({external_id}) {'BACKDATE' if backdate else 'LIVE'}",
           "disabled": False,
           "guid": "",
           "options": {
-            "backdate_enabled_radio": True,
-            "backdate_enabled": True,
+            "backdate_enabled_radio": backdate,
+            "backdate_enabled": backdate,
             "client_id": "25227",
             "api_secret": "QkAB7RfnQ7Uy4mDA2bfs",
             "api_method": "reviews",
@@ -177,22 +181,17 @@ def appfollow_fetch(company_name, external_id, app_name, from_date, to_date, bac
           },
           "schedule": "never",
           "keep_events_for": 2592000,
-          "propagate_immediately": False
+          "propagate_immediately": True
         }
-    if backdate:
-        appfollow['options']['backdate_enabled_radio'] = True
-        appfollow['options']['backdate_enabled'] = True
-    else:
+    if not backdate:
+        appfollow['options']['backdate_enabled_radio'] = False
+        appfollow['options']['backdate_enabled'] = False
         appfollow['schedule'] = frequency
         
     return appfollow
-
 
 scenario = main(company_name, subdomain, dataset_gp, dataset_ap, external_ids, backdate, frequency)
 
 
 with open(f'{file_save_name}.json', 'w') as outfile:
     json.dump(scenario, outfile)
-
-
-
